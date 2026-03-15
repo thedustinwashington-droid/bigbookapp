@@ -230,8 +230,14 @@ h1 {
   line-height: 1.5;
 }
 
-.empty-state h3 {
-  margin: 1.7rem 0 1rem;
+
+.suggested-searches {
+  text-align: center;
+  padding: 1.4rem 0.8rem 0.2rem;
+}
+
+.suggested-searches h3 {
+  margin: 0 0 1rem;
   color: #6b7890;
   letter-spacing: 0.12em;
 }

@@ -59,7 +59,14 @@
         <p class="book-icon">📘</p>
         <h2>Search the Big Book</h2>
         <p>Type any word or phrase to find all matching passages. Tap a result to read the full paragraph.</p>
-        <h3>COMMON SEARCHES</h3>
+      </section>
+
+      <p id="index-status" class="index-status">Preparing searchable index…</p>
+      <section id="results" class="results"></section>
+
+
+      <section class="suggested-searches" aria-label="Suggested searches">
+        <h3>SUGGESTED SEARCHES</h3>
         <div class="chip-grid" id="common-searches">
           <button type="button" class="chip">powerless</button>
           <button type="button" class="chip">spiritual awakening</button>
@@ -75,9 +82,6 @@
           <button type="button" class="chip">fellowship</button>
         </div>
       </section>
-
-      <p id="index-status" class="index-status">Preparing searchable index…</p>
-      <section id="results" class="results"></section>
 
       <section class="detail-card hidden" id="detail-card">
         <button id="back-to-results" class="back-link" type="button">← Back to results</button>
