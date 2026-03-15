@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BigBookSearch</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img" aria-label="AA Circle and Triangle">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" stroke-width="4" />
+            <path d="M32 16 L46 42 H18 Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <div>
+          <h1>BigBookSearch</h1>
+          <p>AA Big Book, 4th Edition</p>
+        </div>
+        <button class="icon-button" id="about-button" type="button" aria-label="About">ⓘ</button>
+      </header>
+
+      <section class="sobriety-card" id="sobriety-card">
+        <div class="card-glow glow-top"></div>
+        <div class="card-glow glow-bottom"></div>
+
+        <div class="sobriety-row">
+          <p class="eyebrow">⭐ SOBER SINCE</p>
+          <button id="open-date-picker" class="ghost-icon" type="button" aria-label="Set sobriety date">⚙</button>
+        </div>
+
+        <p id="sobriety-date-display" class="sobriety-date-display">Pick a sobriety date to begin.</p>
+        <p id="sober-days" class="sober-days">0</p>
+        <p class="sober-days-label">days sober</p>
+
+        <div class="meta-row">
+          <p id="sober-duration" class="duration-pill">0y 0m 0d</p>
+          <p id="live-clock" class="clock">-- : -- : --</p>
+        </div>
+
+        <p class="quote">“A miracle of recovery. Keep giving it away.”</p>
+      </section>
+
+      <section class="search-panel" id="search-card">
+        <div class="search-input-wrap">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
+            <line x1="16.2" y1="16.2" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <input id="search-input" type="search" autocomplete="off" placeholder="Search the Big Book..." />
+          <button id="search-button" type="button">Go</button>
+        </div>
+        <ul id="suggestions" class="suggestions" aria-label="Search suggestions"></ul>
+      </section>
+
+      <section id="empty-state" class="empty-state">
+        <p class="book-icon">📘</p>
+        <h2>Search the Big Book</h2>
+        <p>Type any word or phrase to find all matching passages. Tap a result to read the full paragraph.</p>
+        <h3>COMMON SEARCHES</h3>
+        <div class="chip-grid" id="common-searches">
+          <button type="button" class="chip">powerless</button>
+          <button type="button" class="chip">spiritual awakening</button>
+          <button type="button" class="chip">higher power</button>
+          <button type="button" class="chip">resentment</button>
+          <button type="button" class="chip">serenity</button>
+          <button type="button" class="chip">Step Three</button>
+          <button type="button" class="chip">honesty</button>
+          <button type="button" class="chip">amends</button>
+          <button type="button" class="chip">surrender</button>
+          <button type="button" class="chip">God</button>
+          <button type="button" class="chip">sobriety</button>
+          <button type="button" class="chip">fellowship</button>
+        </div>
+      </section>
+
+      <p id="index-status" class="index-status">Preparing searchable index…</p>
+      <section id="results" class="results"></section>
+
+      <section class="detail-card hidden" id="detail-card">
+        <button id="back-to-results" class="back-link" type="button">← Back to results</button>
+        <h2 id="detail-title">Paragraph Match</h2>
+        <article id="detail-content"></article>
+      </section>
+    </main>
+
+    <div class="date-modal hidden" id="date-modal" role="dialog" aria-modal="true" aria-labelledby="date-modal-title">
+      <div class="date-modal-card">
+        <h2 id="date-modal-title">Enter your sobriety date</h2>
+        <p>Set it once now. You can change it any time with the gear icon.</p>
+        <form id="sobriety-form" class="date-form">
+          <label for="sobriety-date">Sobriety date</label>
+          <input id="sobriety-date" name="sobriety-date" type="date" required />
+          <button type="submit">Save Date</button>
+        </form>
+      </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
