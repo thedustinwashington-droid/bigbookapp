@@ -41,7 +41,11 @@ body {
   border-radius: 10px;
   background: #e9eef5;
   color: #8193af;
-  font-size: 1.2rem;
+}
+
+.brand-mark svg {
+  width: 38px;
+  height: 38px;
 }
 
 h1 {
