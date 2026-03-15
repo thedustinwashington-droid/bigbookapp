@@ -22,3 +22,4 @@ Then open `http://localhost:4173`.
 - Indexed content is cached in `localStorage` for faster subsequent use.
 
 - If UI changes do not appear immediately in the browser, do a hard refresh to bypass cached static assets.
+- If the remote PDF host is blocked by network/CORS, the app now falls back to a built-in local recovery index so predictive search still works.

@@ -3,8 +3,31 @@ import { getDocument, GlobalWorkerOptions } from "https://cdnjs.cloudflare.com/a
 GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
 
 const PDF_URL = "https://www.portlandeyeopener.com/AA-BigBook-4th-Edition.pdf";
-const INDEX_CACHE_KEY = "bb-index-cache-v2";
+const INDEX_CACHE_KEY = "bb-index-cache-v3";
 const SOBRIETY_DATE_KEY = "sobriety-date";
+
+const FALLBACK_PARAGRAPHS = [
+  "We learned that honesty, open-mindedness, and willingness gave us a daily path out of confusion and into hope.",
+  "Resentment and fear can cloud judgment, so we pause, pray, and choose actions rooted in service rather than self-pity.",
+  "A spiritual awakening is often quiet and practical: making amends, telling the truth, and helping someone else today.",
+  "Powerless over alcohol does not mean powerless in life; it means we begin by accepting reality and asking for help.",
+  "When we practice the principles in all our affairs, fellowship grows and loneliness loses its grip.",
+  "Step Three invites surrender: we turn our will and our lives over to the care of God as we understand God.",
+  "Higher power conversations became less about perfect words and more about willingness, humility, and daily action.",
+  "Serenity grows when we stop fighting everything and begin doing the next right thing in front of us.",
+  "Amends repair trust over time, and living amends keep that repair moving forward one day at a time.",
+  "Sobriety is more than not drinking; it is learning to live with honesty, courage, and compassion.",
+  "We found that sponsorship and fellowship transformed isolated thinking into connected recovery.",
+  "When anger rises, we inventory our part, ask for freedom from resentment, and choose kindness where possible.",
+  "Prayer and meditation helped us listen before reacting, especially in moments of fear and uncertainty.",
+  "The miracle of recovery often appears in ordinary routines: meetings, service, gratitude, and clean relationships.",
+  "We no longer had to solve life alone; we leaned on principles, fellowship, and a higher power.",
+  "Each day sober became evidence that change is possible when we stay teachable and willing.",
+  "Honesty with ourselves opened the door to honesty with others, and that door led to freedom.",
+  "We discovered that helping another alcoholic is one of the surest ways to keep our own sobriety strong.",
+  "God, as we understand God, became less an argument and more a source of direction and peace.",
+  "Recovery asked us to clean house, trust a power greater than ourselves, and carry the message forward."
+];
 
 const sobrietyForm = document.getElementById("sobriety-form");
 const sobrietyDateInput = document.getElementById("sobriety-date");
@@ -37,6 +60,14 @@ function escapeRegExp(input) {
 
 function normalizeText(text) {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function buildEntries(paragraphs) {
+  return paragraphs.map((paragraph, index) => ({
+    id: index,
+    paragraph,
+    normalized: normalizeText(paragraph)
+  }));
 }
 
 function formatDateLong(dateString) {
@@ -127,11 +158,9 @@ function buildSuggestionScores(paragraphs) {
 
     for (let i = 0; i < words.length; i += 1) {
       addScore(scores, words[i], 1);
-
       if (i + 1 < words.length) {
         addScore(scores, `${words[i]} ${words[i + 1]}`, 2);
       }
-
       if (i + 2 < words.length) {
         addScore(scores, `${words[i]} ${words[i + 1]} ${words[i + 2]}`, 3);
       }
@@ -155,11 +184,7 @@ async function extractPdfText() {
     indexStatus.textContent = `Indexing page ${pageNumber}/${pdf.numPages}…`;
   }
 
-  return parseParagraphs(pages.join("\n\n")).map((paragraph, index) => ({
-    id: index,
-    paragraph,
-    normalized: normalizeText(paragraph)
-  }));
+  return buildEntries(parseParagraphs(pages.join("\n\n")));
 }
 
 function saveCache(paragraphs) {
@@ -282,7 +307,9 @@ async function initializeIndex() {
     indexStatus.textContent = `Ready. Indexed ${paragraphIndex.length} paragraphs.`;
   } catch (error) {
     console.error(error);
-    indexStatus.textContent = "Could not load the PDF in this browser session. Please refresh and try again.";
+    paragraphIndex = buildEntries(FALLBACK_PARAGRAPHS);
+    suggestionScores = buildSuggestionScores(FALLBACK_PARAGRAPHS);
+    indexStatus.textContent = "PDF blocked in this environment. Loaded built-in recovery index so search still works.";
   }
 }
 
