@@ -5,6 +5,7 @@
   --navy: #1f4474;
   --navy-soft: #365782;
   --line: #c9d1dc;
+  --white: #ffffff;
 }
 
 * {
@@ -84,8 +85,15 @@ h1 {
   pointer-events: none;
 }
 
-.glow-top { right: -52px; top: -65px; }
-.glow-bottom { left: -92px; bottom: -120px; }
+.glow-top {
+  right: -52px;
+  top: -65px;
+}
+
+.glow-bottom {
+  left: -92px;
+  bottom: -120px;
+}
 
 .sobriety-row {
   display: flex;
@@ -105,6 +113,38 @@ h1 {
   background: transparent;
   color: #c7d6ed;
   font-size: 1.3rem;
+}
+
+.sobriety-form {
+  margin-top: 0.7rem;
+  display: none;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  align-items: end;
+}
+
+.sobriety-form.show {
+  display: grid;
+}
+
+.sobriety-form label {
+  grid-column: 1/-1;
+  font-size: 0.86rem;
+  color: #b9c7dc;
+}
+
+input,
+button {
+  font: inherit;
+}
+
+.sobriety-form input,
+.sobriety-form button {
+  border-radius: 10px;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  background: rgb(255 255 255 / 0.12);
+  color: #fff;
+  padding: 0.6rem 0.75rem;
 }
 
 .sobriety-date-display {
@@ -131,6 +171,7 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .duration-pill {
@@ -153,7 +194,9 @@ h1 {
   font-size: clamp(1.03rem, 3.4vw, 1.7rem);
 }
 
-.search-panel { margin-top: 1.15rem; }
+.search-panel {
+  margin-top: 1.15rem;
+}
 
 .search-input-wrap {
   border: 2px solid var(--line);
@@ -165,11 +208,9 @@ h1 {
   padding: 0.3rem 0.65rem;
 }
 
-.search-icon {
-  width: 24px;
-  height: 24px;
+.search-input-wrap span {
   color: #74839c;
-  flex: 0 0 auto;
+  font-size: 1.6rem;
 }
 
 #search-input {
@@ -200,7 +241,9 @@ h1 {
   display: none;
 }
 
-.suggestions.show { display: block; }
+.suggestions.show {
+  display: block;
+}
 
 .suggestion-btn {
   border: none;
@@ -213,15 +256,26 @@ h1 {
   color: #33455f;
 }
 
-.suggestions li:first-child .suggestion-btn { border-top: none; }
+.suggestions li:first-child .suggestion-btn {
+  border-top: none;
+}
 
 .empty-state {
   text-align: center;
   padding: 4rem 0.8rem 1.2rem;
 }
 
-.book-icon { font-size: 2.5rem; color: #7286a3; margin: 0; }
-.empty-state h2 { font-size: clamp(1.5rem, 5.6vw, 3rem); margin-bottom: 0.8rem; }
+.book-icon {
+  font-size: 2.5rem;
+  color: #7286a3;
+  margin: 0;
+}
+
+.empty-state h2 {
+  font-size: clamp(1.5rem, 5.6vw, 3rem);
+  margin-bottom: 0.8rem;
+}
+
 .empty-state p {
   margin: 0 auto;
   color: #66748c;
@@ -230,19 +284,19 @@ h1 {
   line-height: 1.5;
 }
 
-
-.suggested-searches {
-  text-align: center;
-  padding: 1.4rem 0.8rem 0.2rem;
-}
-
-.suggested-searches h3 {
-  margin: 0 0 1rem;
+.empty-state h3 {
+  margin: 1.7rem 0 1rem;
   color: #6b7890;
   letter-spacing: 0.12em;
 }
 
-.chip-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.7rem; }
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+}
+
 .chip {
   border: 2px solid var(--line);
   border-radius: 999px;
@@ -252,21 +306,31 @@ h1 {
   font-size: clamp(1rem, 3.5vw, 1.6rem);
 }
 
-.index-status { margin-top: 0.3rem; color: #6f7f97; font-size: 0.9rem; }
-.results { display: grid; gap: 0.7rem; margin-top: 1rem; }
+.index-status {
+  margin-top: 0.3rem;
+  color: #6f7f97;
+  font-size: 0.9rem;
+}
+
+.results {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
 .result-item {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #fff;
   padding: 0.8rem;
 }
-.open-result {
-  cursor: pointer;
-}
 
-.open-result:focus {
-  outline: 2px solid #7ea9de;
-  outline-offset: 2px;
+.open-result {
+  border: none;
+  border-radius: 10px;
+  background: #2a4e80;
+  color: #fff;
+  padding: 0.45rem 0.7rem;
 }
 
 .detail-card {
@@ -277,56 +341,18 @@ h1 {
   background: #fff;
 }
 
-.back-link { border: none; background: transparent; color: #285089; padding: 0; }
-
-.date-modal {
-  position: fixed;
-  inset: 0;
-  background: rgb(15 23 42 / 0.45);
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  z-index: 1000;
-}
-
-.date-modal-card {
-  width: min(100%, 430px);
-  background: #fff;
-  border-radius: 16px;
-  padding: 1rem;
-}
-
-.date-modal-card h2 {
-  margin: 0;
-}
-
-.date-modal-card p {
-  color: #5f6f87;
-  margin: 0.45rem 0 0.85rem;
-}
-
-.date-form {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.date-form input,
-.date-form button {
-  font: inherit;
-  padding: 0.65rem 0.75rem;
-  border-radius: 10px;
-}
-
-.date-form input {
-  border: 1px solid var(--line);
-}
-
-.date-form button {
+.back-link {
   border: none;
-  background: #2a4e80;
-  color: #fff;
-  font-weight: 700;
+  background: transparent;
+  color: #285089;
+  padding: 0;
 }
 
-mark { background: #cde7ff; border-radius: 4px; }
-.hidden { display: none; }
+mark {
+  background: #cde7ff;
+  border-radius: 4px;
+}
+
+.hidden {
+  display: none;
+}

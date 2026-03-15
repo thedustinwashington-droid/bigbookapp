@@ -3,8 +3,7 @@ import { getDocument, GlobalWorkerOptions } from "https://cdnjs.cloudflare.com/a
 GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
 
 const PDF_URL = "https://www.portlandeyeopener.com/AA-BigBook-4th-Edition.pdf";
-const INDEX_CACHE_KEY = "bb-index-cache-v4";
-const LEGACY_CACHE_KEYS = ["bb-index-cache-v3", "bb-index-cache-v2", "bb-index-cache-v1"];
+const INDEX_CACHE_KEY = "bb-index-cache-v1";
 const SOBRIETY_DATE_KEY = "sobriety-date";
 
 const sobrietyForm = document.getElementById("sobriety-form");
@@ -13,7 +12,6 @@ const sobrietyDateDisplay = document.getElementById("sobriety-date-display");
 const soberDays = document.getElementById("sober-days");
 const soberDuration = document.getElementById("sober-duration");
 const liveClock = document.getElementById("live-clock");
-const dateModal = document.getElementById("date-modal");
 const openDatePickerButton = document.getElementById("open-date-picker");
 const aboutButton = document.getElementById("about-button");
 const searchInput = document.getElementById("search-input");
@@ -29,7 +27,7 @@ const detailContent = document.getElementById("detail-content");
 const backToResultsButton = document.getElementById("back-to-results");
 
 let paragraphIndex = [];
-let suggestionScores = new Map();
+let wordFrequency = new Map();
 let lastResults = [];
 
 function escapeRegExp(input) {
@@ -38,14 +36,6 @@ function escapeRegExp(input) {
 
 function normalizeText(text) {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function buildEntries(paragraphs) {
-  return paragraphs.map((paragraph, index) => ({
-    id: index,
-    paragraph,
-    normalized: normalizeText(paragraph)
-  }));
 }
 
 function formatDateLong(dateString) {
@@ -66,15 +56,6 @@ function updateClock() {
   });
 }
 
-function openDateModal() {
-  dateModal.classList.remove("hidden");
-  sobrietyDateInput.focus();
-}
-
-function closeDateModal() {
-  dateModal.classList.add("hidden");
-}
-
 function renderSobrietyDuration(dateString) {
   const start = new Date(`${dateString}T00:00:00`);
   const now = new Date();
@@ -83,7 +64,7 @@ function renderSobrietyDuration(dateString) {
     sobrietyDateDisplay.textContent = "Please choose a valid sobriety date in the past.";
     soberDays.textContent = "0";
     soberDuration.textContent = "0y 0m 0d";
-    return false;
+    return;
   }
 
   const diffMs = now - start;
@@ -95,21 +76,16 @@ function renderSobrietyDuration(dateString) {
   soberDays.textContent = totalDays.toLocaleString();
   soberDuration.textContent = `${years}y ${months}m ${days}d`;
   sobrietyDateDisplay.textContent = formatDateLong(dateString);
-  return true;
 }
 
 function loadSobrietyDate() {
   const saved = localStorage.getItem(SOBRIETY_DATE_KEY);
   if (!saved) {
-    openDateModal();
     return;
   }
 
   sobrietyDateInput.value = saved;
-  const valid = renderSobrietyDuration(saved);
-  if (!valid) {
-    openDateModal();
-  }
+  renderSobrietyDuration(saved);
 }
 
 function parseParagraphs(text) {
@@ -121,31 +97,22 @@ function parseParagraphs(text) {
     .filter((paragraph) => paragraph.length > 45);
 }
 
-function addScore(map, phrase, amount = 1) {
-  if (!phrase || phrase.length < 2) {
-    return;
-  }
-  map.set(phrase, (map.get(phrase) || 0) + amount);
-}
-
-function buildSuggestionScores(paragraphs) {
-  const scores = new Map();
+function buildWordFrequency(paragraphs) {
+  const frequency = new Map();
 
   for (const paragraph of paragraphs) {
-    const words = paragraph.toLowerCase().match(/[a-z][a-z'’-]{1,}/g) || [];
+    const words = paragraph.toLowerCase().match(/[a-z][a-z'’-]{1,}/g);
 
-    for (let i = 0; i < words.length; i += 1) {
-      addScore(scores, words[i], 1);
-      if (i + 1 < words.length) {
-        addScore(scores, `${words[i]} ${words[i + 1]}`, 2);
-      }
-      if (i + 2 < words.length) {
-        addScore(scores, `${words[i]} ${words[i + 1]} ${words[i + 2]}`, 3);
-      }
+    if (!words) {
+      continue;
+    }
+
+    for (const word of words) {
+      frequency.set(word, (frequency.get(word) || 0) + 1);
     }
   }
 
-  return scores;
+  return frequency;
 }
 
 async function extractPdfText() {
@@ -162,50 +129,29 @@ async function extractPdfText() {
     indexStatus.textContent = `Indexing page ${pageNumber}/${pdf.numPages}…`;
   }
 
-  return buildEntries(parseParagraphs(pages.join("\n\n")));
+  return parseParagraphs(pages.join("\n\n")).map((paragraph, index) => ({
+    id: index,
+    paragraph,
+    normalized: normalizeText(paragraph)
+  }));
 }
 
 function saveCache(paragraphs) {
-  localStorage.setItem(
-    INDEX_CACHE_KEY,
-    JSON.stringify({
-      version: 4,
-      pdfUrl: PDF_URL,
-      entries: paragraphs
-    })
-  );
+  localStorage.setItem(INDEX_CACHE_KEY, JSON.stringify(paragraphs));
 }
 
 function loadCache() {
-  const keysToTry = [INDEX_CACHE_KEY, ...LEGACY_CACHE_KEYS];
-
-  for (const key of keysToTry) {
-    const raw = localStorage.getItem(key);
-    if (!raw) {
-      continue;
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        parsed.pdfUrl === PDF_URL &&
-        Array.isArray(parsed.entries) &&
-        parsed.entries.length > 0
-      ) {
-        return parsed.entries;
-      }
-    } catch {
-      // Continue trying the next key.
-    }
+  const raw = localStorage.getItem(INDEX_CACHE_KEY);
+  if (!raw) {
+    return null;
   }
 
-  return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function setSuggestions(query) {
@@ -217,11 +163,11 @@ function setSuggestions(query) {
     return;
   }
 
-  const candidates = [...suggestionScores.entries()]
-    .filter(([phrase]) => phrase.includes(normalizedQuery))
+  const candidates = [...wordFrequency.entries()]
+    .filter(([word]) => word.includes(normalizedQuery))
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
-    .map(([phrase]) => phrase);
+    .map(([word]) => word);
 
   if (candidates.length === 0) {
     suggestionsList.classList.remove("show");
@@ -229,21 +175,13 @@ function setSuggestions(query) {
     return;
   }
 
-  suggestionsList.innerHTML = "";
-  for (const phrase of candidates) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "suggestion-btn";
-    button.dataset.word = phrase;
-    button.textContent = phrase;
-    item.append(button);
-    suggestionsList.append(item);
-  }
+  suggestionsList.innerHTML = candidates
+    .map((word) => `<li><button type="button" class="suggestion-btn" data-word="${word}">${word}</button></li>`)
+    .join("");
   suggestionsList.classList.add("show");
 }
 
-function renderResults(matches, query, fromSuggestion = false) {
+function renderResults(matches, query) {
   emptyState.classList.toggle("hidden", matches.length > 0 || query.length > 0);
 
   if (!query) {
@@ -256,23 +194,18 @@ function renderResults(matches, query, fromSuggestion = false) {
     return;
   }
 
-  const intro = fromSuggestion
-    ? `<article class="result-item"><p><strong>Preview matches for “${query}”.</strong> Tap a preview to open the full highlighted paragraph.</p></article>`
-    : "";
-
-  const cards = matches
+  resultsContainer.innerHTML = matches
     .map((item, index) => {
       const preview = item.paragraph.length > 220 ? `${item.paragraph.slice(0, 220)}…` : item.paragraph;
       return `
-      <article class="result-item open-result" data-id="${item.id}" role="button" tabindex="0" aria-label="Open full paragraph ${index + 1}">
-        <h3>Preview ${index + 1}</h3>
+      <article class="result-item">
+        <h3>Match ${index + 1}</h3>
         <p>${preview}</p>
+        <button type="button" class="open-result" data-id="${item.id}">Open paragraph</button>
       </article>
     `;
     })
     .join("");
-
-  resultsContainer.innerHTML = `${intro}${cards}`;
 }
 
 function showDetail(result, query) {
@@ -285,7 +218,7 @@ function showDetail(result, query) {
   detailCard.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function runSearch(fromSuggestion = false) {
+function runSearch() {
   const query = normalizeText(searchInput.value);
   suggestionsList.classList.remove("show");
 
@@ -296,9 +229,9 @@ function runSearch(fromSuggestion = false) {
     return;
   }
 
-  const matches = paragraphIndex.filter((entry) => entry.normalized.includes(query)).slice(0, 24);
+  const matches = paragraphIndex.filter((entry) => entry.normalized.includes(query)).slice(0, 100);
   lastResults = matches;
-  renderResults(matches, query, fromSuggestion);
+  renderResults(matches, query);
 }
 
 async function initializeIndex() {
@@ -306,25 +239,28 @@ async function initializeIndex() {
 
   if (cached) {
     paragraphIndex = cached;
-    suggestionScores = buildSuggestionScores(cached.map((entry) => entry.paragraph));
+    wordFrequency = buildWordFrequency(cached.map((entry) => entry.paragraph));
     indexStatus.textContent = `Ready. Indexed ${paragraphIndex.length} paragraphs from cache.`;
     return;
   }
 
   try {
     paragraphIndex = await extractPdfText();
-    suggestionScores = buildSuggestionScores(paragraphIndex.map((entry) => entry.paragraph));
+    wordFrequency = buildWordFrequency(paragraphIndex.map((entry) => entry.paragraph));
     saveCache(paragraphIndex);
     indexStatus.textContent = `Ready. Indexed ${paragraphIndex.length} paragraphs.`;
   } catch (error) {
     console.error(error);
-    paragraphIndex = [];
-    suggestionScores = new Map();
     indexStatus.textContent = "Could not load the PDF in this browser session. Please refresh and try again.";
   }
 }
 
-openDatePickerButton.addEventListener("click", openDateModal);
+openDatePickerButton.addEventListener("click", () => {
+  sobrietyForm.classList.toggle("show");
+  if (sobrietyForm.classList.contains("show")) {
+    sobrietyDateInput.focus();
+  }
+});
 
 aboutButton.addEventListener("click", () => {
   window.alert("BigBookSearch: sobriety tracker + Big Book search.");
@@ -332,14 +268,9 @@ aboutButton.addEventListener("click", () => {
 
 sobrietyForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const value = sobrietyDateInput.value;
-  const valid = renderSobrietyDuration(value);
-  if (!valid) {
-    return;
-  }
-
-  localStorage.setItem(SOBRIETY_DATE_KEY, value);
-  closeDateModal();
+  localStorage.setItem(SOBRIETY_DATE_KEY, sobrietyDateInput.value);
+  renderSobrietyDuration(sobrietyDateInput.value);
+  sobrietyForm.classList.remove("show");
 });
 
 searchInput.addEventListener("input", () => {
@@ -349,12 +280,12 @@ searchInput.addEventListener("input", () => {
   }
 });
 
-searchButton.addEventListener("click", () => runSearch(false));
+searchButton.addEventListener("click", runSearch);
 
 searchInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
-    runSearch(false);
+    runSearch();
   }
 });
 
@@ -365,7 +296,7 @@ commonSearches.addEventListener("click", (event) => {
   }
 
   searchInput.value = target.textContent || "";
-  runSearch(false);
+  runSearch();
 });
 
 suggestionsList.addEventListener("click", (event) => {
@@ -375,37 +306,16 @@ suggestionsList.addEventListener("click", (event) => {
   }
 
   searchInput.value = target.dataset.word || "";
-  runSearch(true);
+  runSearch();
 });
 
 resultsContainer.addEventListener("click", (event) => {
   const target = event.target;
-  if (!(target instanceof HTMLElement)) {
+  if (!(target instanceof HTMLElement) || !target.classList.contains("open-result")) {
     return;
   }
 
-  const resultCard = target.closest(".open-result");
-  if (!(resultCard instanceof HTMLElement)) {
-    return;
-  }
-
-  const result = lastResults.find((item) => item.id === Number(resultCard.dataset.id));
-  if (result) {
-    showDetail(result, searchInput.value);
-  }
-});
-
-resultsContainer.addEventListener("keydown", (event) => {
-  if (!(event.target instanceof HTMLElement) || !event.target.classList.contains("open-result")) {
-    return;
-  }
-
-  if (event.key !== "Enter" && event.key !== " ") {
-    return;
-  }
-
-  event.preventDefault();
-  const result = lastResults.find((item) => item.id === Number(event.target.dataset.id));
+  const result = lastResults.find((item) => item.id === Number(target.dataset.id));
   if (result) {
     showDetail(result, searchInput.value);
   }
