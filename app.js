@@ -3,31 +3,8 @@ import { getDocument, GlobalWorkerOptions } from "https://cdnjs.cloudflare.com/a
 GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
 
 const PDF_URL = "https://www.portlandeyeopener.com/AA-BigBook-4th-Edition.pdf";
-const INDEX_CACHE_KEY = "bb-index-cache-v3";
+const INDEX_CACHE_KEY = "bb-index-cache-v1";
 const SOBRIETY_DATE_KEY = "sobriety-date";
-
-const FALLBACK_PARAGRAPHS = [
-  "We learned that honesty, open-mindedness, and willingness gave us a daily path out of confusion and into hope.",
-  "Resentment and fear can cloud judgment, so we pause, pray, and choose actions rooted in service rather than self-pity.",
-  "A spiritual awakening is often quiet and practical: making amends, telling the truth, and helping someone else today.",
-  "Powerless over alcohol does not mean powerless in life; it means we begin by accepting reality and asking for help.",
-  "When we practice the principles in all our affairs, fellowship grows and loneliness loses its grip.",
-  "Step Three invites surrender: we turn our will and our lives over to the care of God as we understand God.",
-  "Higher power conversations became less about perfect words and more about willingness, humility, and daily action.",
-  "Serenity grows when we stop fighting everything and begin doing the next right thing in front of us.",
-  "Amends repair trust over time, and living amends keep that repair moving forward one day at a time.",
-  "Sobriety is more than not drinking; it is learning to live with honesty, courage, and compassion.",
-  "We found that sponsorship and fellowship transformed isolated thinking into connected recovery.",
-  "When anger rises, we inventory our part, ask for freedom from resentment, and choose kindness where possible.",
-  "Prayer and meditation helped us listen before reacting, especially in moments of fear and uncertainty.",
-  "The miracle of recovery often appears in ordinary routines: meetings, service, gratitude, and clean relationships.",
-  "We no longer had to solve life alone; we leaned on principles, fellowship, and a higher power.",
-  "Each day sober became evidence that change is possible when we stay teachable and willing.",
-  "Honesty with ourselves opened the door to honesty with others, and that door led to freedom.",
-  "We discovered that helping another alcoholic is one of the surest ways to keep our own sobriety strong.",
-  "God, as we understand God, became less an argument and more a source of direction and peace.",
-  "Recovery asked us to clean house, trust a power greater than ourselves, and carry the message forward."
-];
 
 const sobrietyForm = document.getElementById("sobriety-form");
 const sobrietyDateInput = document.getElementById("sobriety-date");
@@ -35,7 +12,6 @@ const sobrietyDateDisplay = document.getElementById("sobriety-date-display");
 const soberDays = document.getElementById("sober-days");
 const soberDuration = document.getElementById("sober-duration");
 const liveClock = document.getElementById("live-clock");
-const dateModal = document.getElementById("date-modal");
 const openDatePickerButton = document.getElementById("open-date-picker");
 const aboutButton = document.getElementById("about-button");
 const searchInput = document.getElementById("search-input");
@@ -51,7 +27,7 @@ const detailContent = document.getElementById("detail-content");
 const backToResultsButton = document.getElementById("back-to-results");
 
 let paragraphIndex = [];
-let suggestionScores = new Map();
+let wordFrequency = new Map();
 let lastResults = [];
 
 function escapeRegExp(input) {
@@ -60,14 +36,6 @@ function escapeRegExp(input) {
 
 function normalizeText(text) {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function buildEntries(paragraphs) {
-  return paragraphs.map((paragraph, index) => ({
-    id: index,
-    paragraph,
-    normalized: normalizeText(paragraph)
-  }));
 }
 
 function formatDateLong(dateString) {
@@ -88,15 +56,6 @@ function updateClock() {
   });
 }
 
-function openDateModal() {
-  dateModal.classList.remove("hidden");
-  sobrietyDateInput.focus();
-}
-
-function closeDateModal() {
-  dateModal.classList.add("hidden");
-}
-
 function renderSobrietyDuration(dateString) {
   const start = new Date(`${dateString}T00:00:00`);
   const now = new Date();
@@ -105,7 +64,7 @@ function renderSobrietyDuration(dateString) {
     sobrietyDateDisplay.textContent = "Please choose a valid sobriety date in the past.";
     soberDays.textContent = "0";
     soberDuration.textContent = "0y 0m 0d";
-    return false;
+    return;
   }
 
   const diffMs = now - start;
@@ -117,21 +76,16 @@ function renderSobrietyDuration(dateString) {
   soberDays.textContent = totalDays.toLocaleString();
   soberDuration.textContent = `${years}y ${months}m ${days}d`;
   sobrietyDateDisplay.textContent = formatDateLong(dateString);
-  return true;
 }
 
 function loadSobrietyDate() {
   const saved = localStorage.getItem(SOBRIETY_DATE_KEY);
   if (!saved) {
-    openDateModal();
     return;
   }
 
   sobrietyDateInput.value = saved;
-  const valid = renderSobrietyDuration(saved);
-  if (!valid) {
-    openDateModal();
-  }
+  renderSobrietyDuration(saved);
 }
 
 function parseParagraphs(text) {
@@ -143,31 +97,22 @@ function parseParagraphs(text) {
     .filter((paragraph) => paragraph.length > 45);
 }
 
-function addScore(map, phrase, amount = 1) {
-  if (!phrase || phrase.length < 2) {
-    return;
-  }
-  map.set(phrase, (map.get(phrase) || 0) + amount);
-}
-
-function buildSuggestionScores(paragraphs) {
-  const scores = new Map();
+function buildWordFrequency(paragraphs) {
+  const frequency = new Map();
 
   for (const paragraph of paragraphs) {
-    const words = paragraph.toLowerCase().match(/[a-z][a-z'’-]{1,}/g) || [];
+    const words = paragraph.toLowerCase().match(/[a-z][a-z'’-]{1,}/g);
 
-    for (let i = 0; i < words.length; i += 1) {
-      addScore(scores, words[i], 1);
-      if (i + 1 < words.length) {
-        addScore(scores, `${words[i]} ${words[i + 1]}`, 2);
-      }
-      if (i + 2 < words.length) {
-        addScore(scores, `${words[i]} ${words[i + 1]} ${words[i + 2]}`, 3);
-      }
+    if (!words) {
+      continue;
+    }
+
+    for (const word of words) {
+      frequency.set(word, (frequency.get(word) || 0) + 1);
     }
   }
 
-  return scores;
+  return frequency;
 }
 
 async function extractPdfText() {
@@ -184,7 +129,11 @@ async function extractPdfText() {
     indexStatus.textContent = `Indexing page ${pageNumber}/${pdf.numPages}…`;
   }
 
-  return buildEntries(parseParagraphs(pages.join("\n\n")));
+  return parseParagraphs(pages.join("\n\n")).map((paragraph, index) => ({
+    id: index,
+    paragraph,
+    normalized: normalizeText(paragraph)
+  }));
 }
 
 function saveCache(paragraphs) {
@@ -214,11 +163,11 @@ function setSuggestions(query) {
     return;
   }
 
-  const candidates = [...suggestionScores.entries()]
-    .filter(([phrase]) => phrase.includes(normalizedQuery))
+  const candidates = [...wordFrequency.entries()]
+    .filter(([word]) => word.includes(normalizedQuery))
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
-    .map(([phrase]) => phrase);
+    .map(([word]) => word);
 
   if (candidates.length === 0) {
     suggestionsList.classList.remove("show");
@@ -227,12 +176,12 @@ function setSuggestions(query) {
   }
 
   suggestionsList.innerHTML = candidates
-    .map((phrase) => `<li><button type="button" class="suggestion-btn" data-word="${phrase}">${phrase}</button></li>`)
+    .map((word) => `<li><button type="button" class="suggestion-btn" data-word="${word}">${word}</button></li>`)
     .join("");
   suggestionsList.classList.add("show");
 }
 
-function renderResults(matches, query, fromSuggestion = false) {
+function renderResults(matches, query) {
   emptyState.classList.toggle("hidden", matches.length > 0 || query.length > 0);
 
   if (!query) {
@@ -245,23 +194,18 @@ function renderResults(matches, query, fromSuggestion = false) {
     return;
   }
 
-  const intro = fromSuggestion
-    ? `<article class="result-item"><p><strong>Preview matches for “${query}”.</strong> Tap a preview to open the full highlighted paragraph.</p></article>`
-    : "";
-
-  const cards = matches
+  resultsContainer.innerHTML = matches
     .map((item, index) => {
       const preview = item.paragraph.length > 220 ? `${item.paragraph.slice(0, 220)}…` : item.paragraph;
       return `
-      <article class="result-item open-result" data-id="${item.id}" role="button" tabindex="0" aria-label="Open full paragraph ${index + 1}">
-        <h3>Preview ${index + 1}</h3>
+      <article class="result-item">
+        <h3>Match ${index + 1}</h3>
         <p>${preview}</p>
+        <button type="button" class="open-result" data-id="${item.id}">Open paragraph</button>
       </article>
     `;
     })
     .join("");
-
-  resultsContainer.innerHTML = `${intro}${cards}`;
 }
 
 function showDetail(result, query) {
@@ -274,7 +218,7 @@ function showDetail(result, query) {
   detailCard.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function runSearch(fromSuggestion = false) {
+function runSearch() {
   const query = normalizeText(searchInput.value);
   suggestionsList.classList.remove("show");
 
@@ -285,9 +229,9 @@ function runSearch(fromSuggestion = false) {
     return;
   }
 
-  const matches = paragraphIndex.filter((entry) => entry.normalized.includes(query)).slice(0, 24);
+  const matches = paragraphIndex.filter((entry) => entry.normalized.includes(query)).slice(0, 100);
   lastResults = matches;
-  renderResults(matches, query, fromSuggestion);
+  renderResults(matches, query);
 }
 
 async function initializeIndex() {
@@ -295,25 +239,28 @@ async function initializeIndex() {
 
   if (cached) {
     paragraphIndex = cached;
-    suggestionScores = buildSuggestionScores(cached.map((entry) => entry.paragraph));
+    wordFrequency = buildWordFrequency(cached.map((entry) => entry.paragraph));
     indexStatus.textContent = `Ready. Indexed ${paragraphIndex.length} paragraphs from cache.`;
     return;
   }
 
   try {
     paragraphIndex = await extractPdfText();
-    suggestionScores = buildSuggestionScores(paragraphIndex.map((entry) => entry.paragraph));
+    wordFrequency = buildWordFrequency(paragraphIndex.map((entry) => entry.paragraph));
     saveCache(paragraphIndex);
     indexStatus.textContent = `Ready. Indexed ${paragraphIndex.length} paragraphs.`;
   } catch (error) {
     console.error(error);
-    paragraphIndex = buildEntries(FALLBACK_PARAGRAPHS);
-    suggestionScores = buildSuggestionScores(FALLBACK_PARAGRAPHS);
-    indexStatus.textContent = "PDF blocked in this environment. Loaded built-in recovery index so search still works.";
+    indexStatus.textContent = "Could not load the PDF in this browser session. Please refresh and try again.";
   }
 }
 
-openDatePickerButton.addEventListener("click", openDateModal);
+openDatePickerButton.addEventListener("click", () => {
+  sobrietyForm.classList.toggle("show");
+  if (sobrietyForm.classList.contains("show")) {
+    sobrietyDateInput.focus();
+  }
+});
 
 aboutButton.addEventListener("click", () => {
   window.alert("BigBookSearch: sobriety tracker + Big Book search.");
@@ -321,14 +268,9 @@ aboutButton.addEventListener("click", () => {
 
 sobrietyForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const value = sobrietyDateInput.value;
-  const valid = renderSobrietyDuration(value);
-  if (!valid) {
-    return;
-  }
-
-  localStorage.setItem(SOBRIETY_DATE_KEY, value);
-  closeDateModal();
+  localStorage.setItem(SOBRIETY_DATE_KEY, sobrietyDateInput.value);
+  renderSobrietyDuration(sobrietyDateInput.value);
+  sobrietyForm.classList.remove("show");
 });
 
 searchInput.addEventListener("input", () => {
@@ -338,12 +280,12 @@ searchInput.addEventListener("input", () => {
   }
 });
 
-searchButton.addEventListener("click", () => runSearch(false));
+searchButton.addEventListener("click", runSearch);
 
 searchInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
-    runSearch(false);
+    runSearch();
   }
 });
 
@@ -354,7 +296,7 @@ commonSearches.addEventListener("click", (event) => {
   }
 
   searchInput.value = target.textContent || "";
-  runSearch(false);
+  runSearch();
 });
 
 suggestionsList.addEventListener("click", (event) => {
@@ -364,37 +306,16 @@ suggestionsList.addEventListener("click", (event) => {
   }
 
   searchInput.value = target.dataset.word || "";
-  runSearch(true);
+  runSearch();
 });
 
 resultsContainer.addEventListener("click", (event) => {
   const target = event.target;
-  if (!(target instanceof HTMLElement)) {
+  if (!(target instanceof HTMLElement) || !target.classList.contains("open-result")) {
     return;
   }
 
-  const resultCard = target.closest(".open-result");
-  if (!(resultCard instanceof HTMLElement)) {
-    return;
-  }
-
-  const result = lastResults.find((item) => item.id === Number(resultCard.dataset.id));
-  if (result) {
-    showDetail(result, searchInput.value);
-  }
-});
-
-resultsContainer.addEventListener("keydown", (event) => {
-  if (!(event.target instanceof HTMLElement) || !event.target.classList.contains("open-result")) {
-    return;
-  }
-
-  if (event.key !== "Enter" && event.key !== " ") {
-    return;
-  }
-
-  event.preventDefault();
-  const result = lastResults.find((item) => item.id === Number(event.target.dataset.id));
+  const result = lastResults.find((item) => item.id === Number(target.dataset.id));
   if (result) {
     showDetail(result, searchInput.value);
   }
