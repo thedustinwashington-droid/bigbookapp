@@ -8,10 +8,17 @@ const SOBRIETY_DATE_KEY = "sobriety-date";
 
 const sobrietyForm = document.getElementById("sobriety-form");
 const sobrietyDateInput = document.getElementById("sobriety-date");
-const sobrietyOutput = document.getElementById("sobriety-output");
+const sobrietyDateDisplay = document.getElementById("sobriety-date-display");
+const soberDays = document.getElementById("sober-days");
+const soberDuration = document.getElementById("sober-duration");
+const liveClock = document.getElementById("live-clock");
+const openDatePickerButton = document.getElementById("open-date-picker");
+const aboutButton = document.getElementById("about-button");
 const searchInput = document.getElementById("search-input");
 const suggestionsList = document.getElementById("suggestions");
 const searchButton = document.getElementById("search-button");
+const commonSearches = document.getElementById("common-searches");
+const emptyState = document.getElementById("empty-state");
 const indexStatus = document.getElementById("index-status");
 const resultsContainer = document.getElementById("results");
 const detailCard = document.getElementById("detail-card");
@@ -31,6 +38,46 @@ function normalizeText(text) {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function formatDateLong(dateString) {
+  const date = new Date(`${dateString}T00:00:00`);
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  });
+}
+
+function updateClock() {
+  liveClock.textContent = new Date().toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+}
+
+function renderSobrietyDuration(dateString) {
+  const start = new Date(`${dateString}T00:00:00`);
+  const now = new Date();
+
+  if (Number.isNaN(start.getTime()) || start > now) {
+    sobrietyDateDisplay.textContent = "Please choose a valid sobriety date in the past.";
+    soberDays.textContent = "0";
+    soberDuration.textContent = "0y 0m 0d";
+    return;
+  }
+
+  const diffMs = now - start;
+  const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const years = Math.floor(totalDays / 365.25);
+  const months = Math.floor((totalDays % 365.25) / 30.44);
+  const days = Math.floor(totalDays - years * 365.25 - months * 30.44);
+
+  soberDays.textContent = totalDays.toLocaleString();
+  soberDuration.textContent = `${years}y ${months}m ${days}d`;
+  sobrietyDateDisplay.textContent = formatDateLong(dateString);
+}
+
 function loadSobrietyDate() {
   const saved = localStorage.getItem(SOBRIETY_DATE_KEY);
   if (!saved) {
@@ -41,29 +88,8 @@ function loadSobrietyDate() {
   renderSobrietyDuration(saved);
 }
 
-function renderSobrietyDuration(dateString) {
-  const start = new Date(`${dateString}T00:00:00`);
-  const now = new Date();
-
-  if (Number.isNaN(start.getTime()) || start > now) {
-    sobrietyOutput.textContent = "Please choose a valid sobriety date in the past.";
-    return;
-  }
-
-  const diffMs = now - start;
-  const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const years = Math.floor(totalDays / 365.25);
-  const months = Math.floor((totalDays % 365.25) / 30.44);
-  const days = Math.floor(totalDays - years * 365.25 - months * 30.44);
-
-  sobrietyOutput.textContent = `You've been sober for ${years} year(s), ${months} month(s), and ${days} day(s). (${totalDays} total days)`;
-}
-
 function parseParagraphs(text) {
-  const normalized = text
-    .replace(/\r/g, "")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n");
+  const normalized = text.replace(/\r/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n");
 
   return normalized
     .split(/\n\n+/)
@@ -75,9 +101,7 @@ function buildWordFrequency(paragraphs) {
   const frequency = new Map();
 
   for (const paragraph of paragraphs) {
-    const words = paragraph
-      .toLowerCase()
-      .match(/[a-z][a-z'’-]{1,}/g);
+    const words = paragraph.toLowerCase().match(/[a-z][a-z'’-]{1,}/g);
 
     if (!words) {
       continue;
@@ -101,19 +125,15 @@ async function extractPdfText() {
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const textContent = await page.getTextContent();
-    const text = textContent.items.map((item) => item.str).join(" ");
-    pages.push(text);
+    pages.push(textContent.items.map((item) => item.str).join(" "));
     indexStatus.textContent = `Indexing page ${pageNumber}/${pdf.numPages}…`;
   }
 
-  const allText = pages.join("\n\n");
-  const paragraphs = parseParagraphs(allText).map((paragraph, index) => ({
+  return parseParagraphs(pages.join("\n\n")).map((paragraph, index) => ({
     id: index,
     paragraph,
     normalized: normalizeText(paragraph)
   }));
-
-  return paragraphs;
 }
 
 function saveCache(paragraphs) {
@@ -128,10 +148,7 @@ function loadCache() {
 
   try {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return null;
-    }
-    return parsed;
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
   } catch {
     return null;
   }
@@ -159,44 +176,43 @@ function setSuggestions(query) {
   }
 
   suggestionsList.innerHTML = candidates
-    .map(
-      (word) =>
-        `<li><button type="button" class="suggestion-btn" data-word="${word}">${word}</button></li>`
-    )
+    .map((word) => `<li><button type="button" class="suggestion-btn" data-word="${word}">${word}</button></li>`)
     .join("");
   suggestionsList.classList.add("show");
 }
 
 function renderResults(matches, query) {
+  emptyState.classList.toggle("hidden", matches.length > 0 || query.length > 0);
+
   if (!query) {
     resultsContainer.innerHTML = "";
     return;
   }
 
   if (matches.length === 0) {
-    resultsContainer.innerHTML = `<p>No matches found for <strong>${query}</strong>.</p>`;
+    resultsContainer.innerHTML = `<article class="result-item"><p>No matches found for <strong>${query}</strong>.</p></article>`;
     return;
   }
 
   resultsContainer.innerHTML = matches
     .map((item, index) => {
-      const preview = item.paragraph.length > 190 ? `${item.paragraph.slice(0, 190)}…` : item.paragraph;
+      const preview = item.paragraph.length > 220 ? `${item.paragraph.slice(0, 220)}…` : item.paragraph;
       return `
-        <article class="result-item">
-          <h3>Match ${index + 1}</h3>
-          <p>${preview}</p>
-          <button type="button" class="open-result" data-id="${item.id}">Open paragraph</button>
-        </article>
-      `;
+      <article class="result-item">
+        <h3>Match ${index + 1}</h3>
+        <p>${preview}</p>
+        <button type="button" class="open-result" data-id="${item.id}">Open paragraph</button>
+      </article>
+    `;
     })
     .join("");
 }
 
 function showDetail(result, query) {
-  const expression = new RegExp(`(${escapeRegExp(query)})`, "ig");
+  const expression = new RegExp(`(${escapeRegExp(normalizeText(query))})`, "ig");
   const highlighted = result.paragraph.replace(expression, "<mark>$1</mark>");
 
-  detailTitle.textContent = `Paragraph Match`;
+  detailTitle.textContent = "Paragraph Match";
   detailContent.innerHTML = `<p>${highlighted}</p>`;
   detailCard.classList.remove("hidden");
   detailCard.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -204,11 +220,14 @@ function showDetail(result, query) {
 
 function runSearch() {
   const query = normalizeText(searchInput.value);
+  suggestionsList.classList.remove("show");
+
   if (!query) {
+    lastResults = [];
+    detailCard.classList.add("hidden");
+    renderResults([], query);
     return;
   }
-
-  suggestionsList.classList.remove("show");
 
   const matches = paragraphIndex.filter((entry) => entry.normalized.includes(query)).slice(0, 100);
   lastResults = matches;
@@ -236,15 +255,29 @@ async function initializeIndex() {
   }
 }
 
+openDatePickerButton.addEventListener("click", () => {
+  sobrietyForm.classList.toggle("show");
+  if (sobrietyForm.classList.contains("show")) {
+    sobrietyDateInput.focus();
+  }
+});
+
+aboutButton.addEventListener("click", () => {
+  window.alert("BigBookSearch: sobriety tracker + Big Book search.");
+});
+
 sobrietyForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const dateValue = sobrietyDateInput.value;
-  localStorage.setItem(SOBRIETY_DATE_KEY, dateValue);
-  renderSobrietyDuration(dateValue);
+  localStorage.setItem(SOBRIETY_DATE_KEY, sobrietyDateInput.value);
+  renderSobrietyDuration(sobrietyDateInput.value);
+  sobrietyForm.classList.remove("show");
 });
 
 searchInput.addEventListener("input", () => {
   setSuggestions(searchInput.value);
+  if (!searchInput.value.trim()) {
+    runSearch();
+  }
 });
 
 searchButton.addEventListener("click", runSearch);
@@ -256,44 +289,43 @@ searchInput.addEventListener("keydown", (event) => {
   }
 });
 
-suggestionsList.addEventListener("click", (event) => {
+commonSearches.addEventListener("click", (event) => {
   const target = event.target;
-  if (!(target instanceof HTMLElement)) {
+  if (!(target instanceof HTMLElement) || !target.classList.contains("chip")) {
     return;
   }
 
-  if (!target.classList.contains("suggestion-btn")) {
+  searchInput.value = target.textContent || "";
+  runSearch();
+});
+
+suggestionsList.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || !target.classList.contains("suggestion-btn")) {
     return;
   }
 
   searchInput.value = target.dataset.word || "";
-  suggestionsList.classList.remove("show");
   runSearch();
 });
 
 resultsContainer.addEventListener("click", (event) => {
   const target = event.target;
-  if (!(target instanceof HTMLElement)) {
+  if (!(target instanceof HTMLElement) || !target.classList.contains("open-result")) {
     return;
   }
 
-  if (!target.classList.contains("open-result")) {
-    return;
+  const result = lastResults.find((item) => item.id === Number(target.dataset.id));
+  if (result) {
+    showDetail(result, searchInput.value);
   }
-
-  const id = Number(target.dataset.id);
-  const result = lastResults.find((item) => item.id === id);
-
-  if (!result) {
-    return;
-  }
-
-  showDetail(result, searchInput.value);
 });
 
 backToResultsButton.addEventListener("click", () => {
   detailCard.classList.add("hidden");
 });
 
+updateClock();
+setInterval(updateClock, 1000);
 loadSobrietyDate();
 initializeIndex();
