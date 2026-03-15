@@ -3,7 +3,7 @@ import { getDocument, GlobalWorkerOptions } from "https://cdnjs.cloudflare.com/a
 GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
 
 const PDF_URL = "https://www.portlandeyeopener.com/AA-BigBook-4th-Edition.pdf";
-const INDEX_CACHE_KEY = "bb-index-cache-v1";
+const INDEX_CACHE_KEY = "bb-index-cache-v2";
 const SOBRIETY_DATE_KEY = "sobriety-date";
 
 const sobrietyForm = document.getElementById("sobriety-form");
